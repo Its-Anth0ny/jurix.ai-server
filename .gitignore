@@ -1,0 +1,3 @@
+/uploads/*.pdf
+*.env
+__pycache__/
