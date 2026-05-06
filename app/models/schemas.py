@@ -136,3 +136,13 @@ class ReviewResponse(BaseModel):
     document_id: str
     status: str
     final_output: Optional[dict] = None
+
+
+class TranslateRequest(BaseModel):
+    language: str  # e.g. "Hindi", "Marathi", "Tamil", "fr", "es"
+
+
+class TranslateResponse(BaseModel):
+    document_id: str
+    language: str
+    translated_output: dict

@@ -12,6 +12,8 @@ from app.models.schemas import (
     DocumentResponse,
     ReviewRequest,
     ReviewResponse,
+    TranslateRequest,
+    TranslateResponse,
     DocumentStatus,
     SignupRequest,
     LoginRequest,
@@ -28,6 +30,7 @@ from app.db.mongo import (
 )
 from app.services.pdf_service import save_pdf, PDFValidationError
 from app.services.pipeline_service import run_pipeline
+from app.services.translation_service import translate_output
 from app.core.config import settings
 
 
@@ -256,4 +259,36 @@ async def review_document(document_id: str, review: ReviewRequest, current_user:
         document_id=document_id,
         status=review.decision,
         final_output=final_output,
+    )
+
+
+@router.post("/translate/{document_id}", response_model=TranslateResponse)
+async def translate_document(
+    document_id: str,
+    request: TranslateRequest,
+    current_user: str = Depends(_get_current_user),
+):
+    """Translate extraction fields for the given document into the requested language."""
+    doc = get_documents().find_one({"_id": document_id, "user_id": current_user})
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    extraction = get_extractions().find_one({"document_id": document_id})
+    if not extraction:
+        raise HTTPException(status_code=404, detail="Extraction not found")
+
+    extraction_data = {
+        "case_details": extraction.get("case_details", {}),
+        "parties": extraction.get("parties", {}),
+        "final_order": extraction.get("final_order", ""),
+        "deadlines": extraction.get("deadlines", []),
+        "citations": extraction.get("citations", []),
+    }
+
+    translated = translate_output(extraction_data, request.language)
+
+    return TranslateResponse(
+        document_id=document_id,
+        language=request.language,
+        translated_output=translated,
     )
