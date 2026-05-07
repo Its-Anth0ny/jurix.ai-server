@@ -9,6 +9,7 @@ from typing import Optional
 from app.models.schemas import (
     UploadResponse,
     ProcessResponse,
+    DeleteResponse,
     DocumentResponse,
     ReviewRequest,
     ReviewResponse,
@@ -28,7 +29,7 @@ from app.db.mongo import (
     get_reviews,
     get_users,
 )
-from app.services.pdf_service import save_pdf, PDFValidationError
+from app.services.pdf_service import save_pdf, PDFValidationError, delete_pdf
 from app.services.pipeline_service import run_pipeline
 from app.services.translation_service import translate_output
 from app.core.config import settings
@@ -110,7 +111,7 @@ async def login(request: LoginRequest):
 @router.get("/documents")
 async def list_documents(current_user: str = Depends(_get_current_user)):
     """List documents for the authenticated user."""
-    docs = list(get_documents().find({"user_id": current_user}))
+    docs = list(get_documents().find({"user_id": current_user, "deleted": {"$ne": True}}))
     return {
         "documents": [
             {
@@ -146,7 +147,7 @@ async def upload_pdf(file: UploadFile = File(...), current_user: str = Depends(_
 @router.post("/process/{document_id}", response_model=ProcessResponse)
 async def process_document(document_id: str, background_tasks: BackgroundTasks, current_user: str = Depends(_get_current_user)):
     """Trigger background processing pipeline."""
-    doc = get_documents().find_one({"_id": document_id, "user_id": current_user})
+    doc = get_documents().find_one({"_id": document_id, "user_id": current_user, "deleted": {"$ne": True}})
     if not doc:
         raise HTTPException(status_code=404, detail="Document not found")
 
@@ -158,7 +159,7 @@ async def process_document(document_id: str, background_tasks: BackgroundTasks, 
 @router.get("/document/{document_id}", response_model=DocumentResponse)
 async def get_document(document_id: str, current_user: str = Depends(_get_current_user)):
     """Get document status and results."""
-    doc = get_documents().find_one({"_id": document_id, "user_id": current_user})
+    doc = get_documents().find_one({"_id": document_id, "user_id": current_user, "deleted": {"$ne": True}})
     if not doc:
         raise HTTPException(status_code=404, detail="Document not found")
 
@@ -195,6 +196,24 @@ async def get_document(document_id: str, current_user: str = Depends(_get_curren
         }
 
     return response
+
+
+@router.delete("/document/{document_id}", response_model=DeleteResponse)
+async def delete_document(document_id: str, current_user: str = Depends(_get_current_user)):
+    """Soft-delete a document (sets deleted=True for rollback capability)."""
+    doc = get_documents().find_one({"_id": document_id, "user_id": current_user, "deleted": {"$ne": True}})
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    if doc.get("status") == "processing":
+        raise HTTPException(status_code=400, detail="Cannot delete document while processing")
+
+    get_documents().update_one(
+        {"_id": document_id},
+        {"$set": {"deleted": True, "status": "deleted"}}
+    )
+
+    return DeleteResponse(success=True, message="Document deleted")
 
 
 @router.post("/review/{document_id}", response_model=ReviewResponse)

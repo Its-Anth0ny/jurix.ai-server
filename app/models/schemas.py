@@ -127,6 +127,11 @@ class ProcessResponse(BaseModel):
     status: str = "processing"
 
 
+class DeleteResponse(BaseModel):
+    success: bool
+    message: str
+
+
 class ReviewRequest(BaseModel):
     decision: ReviewDecision
     edited_output: Optional[dict] = None
