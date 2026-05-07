@@ -4,14 +4,17 @@ from typing import Dict, Any
 from app.core.llm import call_llm
 
 
-TRANSLATION_PROMPT = """Translate the following JSON output to {target_lang}.
+TRANSLATION_PROMPT = """You are a legal document translator. Translate the string values in the following JSON to {target_lang}.
 
-Return ONLY valid JSON (the translated version of the input). No explanations, no markdown, no code blocks.
-Return ONLY the translated JSON. Do not wrap in code blocks or add any commentary.
+Rules:
+- Translate only string values. Do not translate or rename JSON keys.
+- Preserve all data types: numbers, booleans, arrays, and nested objects must remain unchanged.
+- If a value is already in {target_lang}, leave it as-is.
+- Legal terms, proper nouns (names, courts, case numbers), and citations must be preserved exactly.
+- Return ONLY the translated JSON object. No explanations, no markdown, no code blocks.
 
 Input JSON:
-{output}
-"""
+{output}"""
 
 
 def translate_output(output: Dict[str, Any], target_lang: str = "en") -> Dict[str, Any]:
