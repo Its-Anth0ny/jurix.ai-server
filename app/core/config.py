@@ -12,6 +12,7 @@ class Settings(BaseSettings):
     max_retries: int = 1
     secret_key: str = "dev-secret-key-change-in-production"
     jwt_expiry_hours: int = 24
+    allowed_origins: str = "http://localhost:3000"
 
     model_config = SettingsConfigDict(env_file=".env")
 
