@@ -25,17 +25,11 @@ def _log(stage: str, status: str, detail: str = "") -> None:
 SYSTEM_PROMPT = "You are a JSON API. Return ONLY valid JSON. No explanations, no thinking tags, no markdown, no code blocks."
 
 
-def call_llm(prompt: str, system: Optional[str] = None) -> Dict[str, Any]:
+def call_llm(prompt: str, system: Optional[str] = None, max_tokens: int = 4096) -> Dict[str, Any]:
     """
     Call Minimax Chat API with JSON output enforcement.
 
-    Args:
-        prompt: User prompt
-        system: Optional system prompt
-
-    Returns:
-        Parsed JSON response as dict
-        On failure after retries: returns {"error": "invalid_response"}
+    Returns parsed JSON dict, or {"error": "invalid_response"} after retries.
     """
     _log("call", "attempting")
 
@@ -44,15 +38,14 @@ def call_llm(prompt: str, system: Optional[str] = None) -> Dict[str, Any]:
         "No markdown, no explanations, no code blocks. Output valid JSON only."
     )
 
-    result = _call_minimax_with_retry(prompt, system)
+    result = _call_minimax_with_retry(prompt, system, max_tokens)
     if result is not None:
         _log("call", "success")
         return result
 
-    # Try once with stricter prompt
     _log("call", "retry_strict")
-    result = _call_minimax_with_retry(strict_prompt, system)
-    if result:
+    result = _call_minimax_with_retry(strict_prompt, system, max_tokens)
+    if result is not None:
         _log("call", "success")
         return result
 
@@ -60,7 +53,7 @@ def call_llm(prompt: str, system: Optional[str] = None) -> Dict[str, Any]:
     return {"error": "invalid_response"}
 
 
-def _call_minimax_with_retry(prompt: str, system: Optional[str] = None) -> Optional[Dict[str, Any]]:
+def _call_minimax_with_retry(prompt: str, system: Optional[str] = None, max_tokens: int = 4096) -> Optional[Dict[str, Any]]:
     """Make a single Minimax API call, parse JSON from response."""
 
     messages = [
@@ -74,7 +67,7 @@ def _call_minimax_with_retry(prompt: str, system: Optional[str] = None) -> Optio
         "model": settings.minimax_model,
         "messages": messages,
         "temperature": 0,
-        "max_tokens": 4096,
+        "max_tokens": max_tokens,
     }
 
     for attempt in range(settings.max_retries + 1):

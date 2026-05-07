@@ -304,10 +304,11 @@ async def translate_document(
         "citations": extraction.get("citations", []),
     }
 
-    translated = translate_output(extraction_data, request.language)
+    translated, warnings = translate_output(extraction_data, request.language)
 
     return TranslateResponse(
         document_id=document_id,
         language=request.language,
         translated_output=translated,
+        translation_warnings=warnings,
     )

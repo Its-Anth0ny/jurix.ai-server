@@ -151,3 +151,4 @@ class TranslateResponse(BaseModel):
     document_id: str
     language: str
     translated_output: dict
+    translation_warnings: list[str] = []
